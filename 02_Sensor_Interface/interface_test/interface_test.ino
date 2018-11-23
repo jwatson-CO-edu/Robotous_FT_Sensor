@@ -1,37 +1,27 @@
-/*
-  Blink
+// ~~ Shortcuts and Aliases ~~
+#define Sensor Serial1 // on pins 19 (RX) and 18 (TX)
 
-  Turns an LED on for one second, then off for one second, repeatedly.
+// == Global Vars ==
 
-  Most Arduinos have an on-board LED you can control. On the UNO, MEGA and ZERO
-  it is attached to digital pin 13, on MKR1000 on pin 6. LED_BUILTIN is set to
-  the correct LED pin independent of which board is used.
-  If you want to know what pin the on-board LED is connected to on your Arduino
-  model, check the Technical Specs of your board at:
-  https://www.arduino.cc/en/Main/Products
+// Composition of input and output messages
+byte cmd[ 11 ] = { 0 , // Start of Packet (SOP) , 1b
+                   0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , // Data 8b
+                   0 , 0  }; // Checksum , End of Packet (EOP) - 1b , 1b
+byte res[ 19 ] = { 0 , // Start of Packet (SOP) , 1b
+                   0 , 0 , 0 , 0 , // Data 16b
+                   0 , 0 , 0 , 0 ,  
+                   0 , 0 , 0 , 0 , 
+                   0 , 0 , 0 , 0 , 
+                   0 , 0 }; // Checksum , End of Packet (EOP) - 1b , 1b
 
-  modified 8 May 2014
-  by Scott Fitzgerald
-  modified 2 Sep 2016
-  by Arturo Guadalupi
-  modified 8 Sep 2016
-  by Colby Newman
+// __ End Global __
 
-  This example code is in the public domain.
-
-  http://www.arduino.cc/en/Tutorial/Blink
-*/
-
-// the setup function runs once when you press reset or power the board
 void setup() {
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+  // put your setup code here, to run once:
+
 }
 
-// the loop function runs over and over again forever
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);                       // wait for a second
+  // put your main code here, to run repeatedly:
+
 }
