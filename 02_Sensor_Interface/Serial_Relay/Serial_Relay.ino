@@ -16,8 +16,8 @@ char readByte = 0;
 
 void setup(){
 	// Initialize Serial Communication
-	Serial.begin( 9600 ); // Info from desktop comes in over the USB wire
-	Sensor.begin( 9600 ); // Info from the robot comes in over the XBee wireless
+	Serial.begin( 115200 ); // Info from desktop comes in over the USB wire
+	Sensor.begin( 115200 ); // Info from the robot comes in over the XBee wireless
 }
 
 // == Main Loop ============================================================================================================================
