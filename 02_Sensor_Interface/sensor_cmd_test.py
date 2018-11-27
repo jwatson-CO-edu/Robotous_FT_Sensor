@@ -62,7 +62,7 @@ def attempt_connection( COMlist , speed ):
     for port in COMlist:
         try:
             ser = serial.Serial( port , speed ) # This must match the port selected in the Arduino IDE
-            print "Connected to port:" , port 
+            print "Connected to port:" , ser.name 
             return ser
         except Exception as ex:
             print "ERROR: COULD NOT ESTABLISH SERIAL CONNECTION WITH" , port , ", Check that the port is correct ..."
@@ -105,20 +105,58 @@ def package_data_for_SEND( data ):
 def SEND_read_model_name( connection ):
     """ Request the model name of the device """
     data = [ 1 , 0 , 0 , 0 , 0 , 0 , 0 , 0 ]
-    send = package_data_for_SEND( data )
-    print "Sending:" , send 
-    connection.write( struct.pack( 'BBBBBBBBBBB' , *send ) )
+    msg  = bytearray( package_data_for_SEND( data ) )
+    for i in xrange(5):
+        connection.write( msg )
+        sleep( 0.01 )
+    print "Sent" , list( msg )
 
-def SEND_set_baud_rate( connection ):
-    """ Set the baud rate """
+def SEND_test_bytes( connection ):
+    """ Send a known  sequence of bytes """
+    data = bytearray([  SOP ,  50 , 100 , EOP ])
+    for i in xrange(5):
+        connection.write( data )
+        sleep( 0.01 )
+    print "Sent" , list( data )
+    #connection.write( struct.pack( 'BBBB' , *data ) )
     
 # ~ Receive ~
 
 def get_all_bytes_from_connection( connection ):
-    readResult = connection.read( connection.inWaiting() )
-    print readResult
-    splitReslt = [ elem for elem in readResult.splitlines() ]    
-    print splitReslt
+    if connection.in_waiting:
+        readResult = connection.read( connection.in_waiting )
+        rtnNums    = [ ord( elem ) for elem in list( readResult ) ]
+        print rtnNums
+        return rtnNums
+    else:
+        print "No bytes to read!"
+        return []
+    
+def get_messages_from_mass_bytes( intsList , bgnInt , endInt , msgLen ):
+    """ Find all the messages in 'intsList' that begin with 'bgnInt' , end with 'endInt' , and are 'msgLen' long """
+    i = 0
+    streamLen = len( intsList )
+    rtnMsgs  = []
+    currByte = 0
+    currMsg  = []
+    reading  = False
+    while( i < streamLen ):
+        currByte = intsList[i]
+        if currByte == bgnInt:
+            reading = True
+            currMsg = [ bgnInt ]
+        elif reading:
+            currMsg.append( currByte )
+            if len( currMsg ) > msgLen:
+                reading = False
+                currMsg = []
+            elif currByte == endInt:
+                rtnMsgs.append( currMsg )
+                currMsg = []
+                reading = False
+        i += 1
+    return rtnMsgs
+            
 
 # _ End Command _
 
@@ -131,42 +169,84 @@ COMLIST = [ '/dev/ttyUSB1' , '/dev/ttyUSB0' ]
 #TSTLIST = [ '/dev/ttyS0'   , '/dev/ttyUSB0' ]
 TSTLIST = [ '/dev/ttyUSB0' , '/dev/ttyS0'   ]
 
+COMMPORTEN = True
+TESTPORTEN = False
+
 # _ End Vars _
 
 if __name__ == "__main__":
     print __prog_signature__()
     termArgs = sys.argv[1:] # Terminal arguments , if they exist
     
-    #print "Connecting to the serial port ..."
-    ser = attempt_connection( COMLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
+    ser = None
+    tst = None
     
-    print "Starting the test connections ..."
-    tst = attempt_connection( TSTLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
-    
-    print "Request model name ..."
-    #SEND_read_model_name( ser )
-    #SEND_read_model_name( tst )
-    
-    sleep( 5 )
-    
-    print "What came back?"
-    if 1:
-        print "Serial has" , ser.inWaiting() , "bytes in waiting"
-        print "Bytes from serial connection:"
-        get_all_bytes_from_connection( ser )
+    if COMMPORTEN:
+        #print "Connecting to the serial port ..."
+        ser = attempt_connection( COMLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
+
+    if TESTPORTEN:    
+        print "Starting the test connections ..."
+        tst = attempt_connection( TSTLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
+
+    if 0:
+        # 1. Send test bytes
+        for i in xrange( 32 ):
+            SEND_read_model_name( ser )
+            sleep(0.001)
         
-        print "Test has" , tst.inWaiting() , "bytes in waiting"
-        print "Bytes from test connection:"
-        get_all_bytes_from_connection( tst )
-    else:
-        if 0:
-            get_all_bytes_from_connection( ser )
-        else:
-            get_all_bytes_from_connection( tst )
+        sleep( 2 )
+        
+        # 2. Interpret messages
+        for i in xrange( 16 ):
+            stream = get_all_bytes_from_connection( ser )
+            if len( stream ):
+                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 16 + 1 + 1 )
+                print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
+            sleep(0.5)        
     
-    print "Closing port ..."
-    #ser.close()
-    tst.close()
+    if 1:
+        # 1. Send test bytes
+        for i in xrange( 16 ):
+            SEND_test_bytes( ser )
+            sleep(0.01)
+        
+        # 2. Interpret messages
+        for i in xrange(  8 ):
+            stream = get_all_bytes_from_connection( ser )
+            if len( stream ):
+                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 4 )
+                print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
+            sleep(0.5)
+    
+    
+    
+    #print "Request model name ..."
+    ##SEND_read_model_name( ser )
+    ##SEND_read_model_name( tst )
+    
+    #sleep( 5 )
+    
+    #print "What came back?"
+    #if 1:
+        #print "Serial has" , ser.inWaiting() , "bytes in waiting"
+        #print "Bytes from serial connection:"
+        #get_all_bytes_from_connection( ser )
+        
+        #print "Test has" , tst.inWaiting() , "bytes in waiting"
+        #print "Bytes from test connection:"
+        #get_all_bytes_from_connection( tst )
+    #else:
+        #if 0:
+            #get_all_bytes_from_connection( ser )
+        #else:
+            #get_all_bytes_from_connection( tst )
+    
+    print "Closing port(s) ..."
+    if COMMPORTEN:
+        ser.close()
+    if TESTPORTEN:
+        tst.close()
     
     print "Exit."
 
