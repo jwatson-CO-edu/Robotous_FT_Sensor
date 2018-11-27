@@ -36,6 +36,7 @@ from math import pi , sqrt
 import numpy as np
 from time import sleep 
 import serial # pySerial for USB comms w/ Arduino
+from serial.tools import list_ports
 import struct # for data composition over serial
 # ~~ Local ~~
 
@@ -68,6 +69,13 @@ def attempt_connection( COMlist , speed ):
             print "ERROR: COULD NOT ESTABLISH SERIAL CONNECTION WITH" , port , ", Check that the port is correct ..."
             print ex
     raise Warning( "attempt_connection: Unable to connect to any of " + str( COMlist ) ) # If we made it to here , we attempted all the ports
+
+def list_available_ports():
+    """ List all the ports that pyserial can detect , Results are dependent on operating system """
+    ports = list_ports.comports()
+    for port in ports:
+        print port.device , '\t' , port.manufacturer , '\t' , port.description
+    return [ port.device for port in ports  ]
 
 # _ End Connection _
 
@@ -164,13 +172,15 @@ def get_messages_from_mass_bytes( intsList , bgnInt , endInt , msgLen ):
 # = Program Vars =
 
 #COMLIST = [ '/dev/ttyUSB0' , '/dev/ttyS0' ]
-COMLIST = [ '/dev/ttyUSB1' , '/dev/ttyUSB0' ]
+#COMLIST = [ '/dev/ttyUSB1' , '/dev/ttyUSB0' ]
+COMLIST = [ '/dev/ttyUSB0' ]
 
 #TSTLIST = [ '/dev/ttyS0'   , '/dev/ttyUSB0' ]
-TSTLIST = [ '/dev/ttyUSB0' , '/dev/ttyS0'   ]
+#TSTLIST = [ '/dev/ttyUSB0' , '/dev/ttyS0'   ]
+TSTLIST = [ '/dev/ttyUSB1' ]
 
 COMMPORTEN = True
-TESTPORTEN = False
+TESTPORTEN = True
 
 # _ End Vars _
 
@@ -181,6 +191,8 @@ if __name__ == "__main__":
     ser = None
     tst = None
     
+    print "Available Ports" , list_available_ports()
+    
     if COMMPORTEN:
         #print "Connecting to the serial port ..."
         ser = attempt_connection( COMLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
@@ -189,7 +201,27 @@ if __name__ == "__main__":
         print "Starting the test connections ..."
         tst = attempt_connection( TSTLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
 
+    # Send formatted messages and listen for data back on the test port
+    if 1:
+        
+        # 1. Send test bytes
+        for i in xrange( 32 ):
+            SEND_read_model_name( ser )
+            sleep(0.001)
+        
+        sleep( 2 )
+        
+        # 2. Interpret messages
+        for i in xrange( 16 ):
+            stream = get_all_bytes_from_connection( tst )
+            if len( stream ):
+                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 16 + 1 + 1 )
+                print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
+            sleep(0.5)           
+
+    # Send formatted messages and listen for any data back
     if 0:
+        
         # 1. Send test bytes
         for i in xrange( 32 ):
             SEND_read_model_name( ser )
@@ -205,7 +237,9 @@ if __name__ == "__main__":
                 print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
             sleep(0.5)        
     
-    if 1:
+    # Send test messages and listen for any data back
+    if 0:
+        
         # 1. Send test bytes
         for i in xrange( 16 ):
             SEND_test_bytes( ser )
