@@ -110,11 +110,13 @@ def package_data_for_SEND( data ):
 
 # ~ Send ~
 
+ATTEMPTS = 1
+
 def SEND_read_model_name( connection ):
     """ Request the model name of the device """
     data = [ 1 , 0 , 0 , 0 , 0 , 0 , 0 , 0 ]
     msg  = bytearray( package_data_for_SEND( data ) )
-    for i in xrange(5):
+    for i in xrange( ATTEMPTS ):
         connection.write( msg )
         sleep( 0.01 )
     print "Sent" , list( msg )
@@ -122,7 +124,7 @@ def SEND_read_model_name( connection ):
 def SEND_test_bytes( connection ):
     """ Send a known  sequence of bytes """
     data = bytearray([  SOP ,  50 , 100 , EOP ])
-    for i in xrange(5):
+    for i in xrange( ATTEMPTS ):
         connection.write( data )
         sleep( 0.01 )
     print "Sent" , list( data )
@@ -164,7 +166,14 @@ def get_messages_from_mass_bytes( intsList , bgnInt , endInt , msgLen ):
                 reading = False
         i += 1
     return rtnMsgs
-            
+
+def RECV_read_model_name( packetList ):
+    """ Interpret bytes as the model name """
+    data = packetList[ 2 : -2 ]
+    rtnStr = ""
+    for bite in data:
+        rtnStr += chr( bite )
+    return rtnStr
 
 # _ End Command _
 
@@ -180,7 +189,7 @@ COMLIST = [ '/dev/ttyUSB0' ]
 TSTLIST = [ '/dev/ttyUSB1' ]
 
 COMMPORTEN = True
-TESTPORTEN = True
+TESTPORTEN = False
 
 # _ End Vars _
 
@@ -191,18 +200,20 @@ if __name__ == "__main__":
     ser = None
     tst = None
     
-    print "Available Ports" , list_available_ports()
+    print "Available Ports" , endl , list_available_ports()
+    
+    BAUD = 115200 # 921600 # 460800 # 230400 # 115200 # 57600
     
     if COMMPORTEN:
         #print "Connecting to the serial port ..."
-        ser = attempt_connection( COMLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
+        ser = attempt_connection( COMLIST , BAUD ) # Speed must match the port selected in the Arduino IDE
 
     if TESTPORTEN:    
         print "Starting the test connections ..."
-        tst = attempt_connection( TSTLIST , 115200 ) # Speed must match the port selected in the Arduino IDE
+        tst = attempt_connection( TSTLIST , BAUD ) # Speed must match the port selected in the Arduino IDE
 
     # Send formatted messages and listen for data back on the test port
-    if 1:
+    if 0:
         
         # 1. Send test bytes
         for i in xrange( 32 ):
@@ -220,22 +231,33 @@ if __name__ == "__main__":
             sleep(0.5)           
 
     # Send formatted messages and listen for any data back
-    if 0:
+    if 1:
+        
+        sendTrials = 1
+        recvTrials = 1        
         
         # 1. Send test bytes
-        for i in xrange( 32 ):
+        for i in xrange( sendTrials ):
             SEND_read_model_name( ser )
             sleep(0.001)
         
-        sleep( 2 )
+        sleep( 1 )
         
         # 2. Interpret messages
-        for i in xrange( 16 ):
+        for i in xrange( recvTrials ):
             stream = get_all_bytes_from_connection( ser )
             if len( stream ):
-                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 16 + 1 + 1 )
+                
+                # Command Message
+                #msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 8 + 1 + 1 )
+                
+                # Response Message
+                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 16 + 1 + 1 )     
+                for msg in msgs:
+                    print '\t\t' , RECV_read_model_name( msg )
+                
                 print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
-            sleep(0.5)        
+            sleep(0.25)        
     
     # Send test messages and listen for any data back
     if 0:

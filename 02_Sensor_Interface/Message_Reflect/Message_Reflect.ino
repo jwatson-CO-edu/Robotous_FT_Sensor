@@ -7,7 +7,7 @@ Serial relay , send every byte received via wired serial out over the wireless c
 // == Init =================================================================================================================================
 
 // ~~ Shortcuts and Aliases ~~
-// None
+#define Sensor Serial1 // on pins 19 (RX) and 18 (TX)
 
 // ~~ Variables ~~
 bool       gotBytes = false;
@@ -40,7 +40,7 @@ void zero_outpt(){  for( int i = 0 ; i < outpLn ; i++ ){  outpt[i] = 0;  }  }
 void setup(){
   // Initialize Serial Communication
   Serial.begin( 115200 ); // Info from desktop comes in over the USB wire
-//  Sensor.begin( 115200 ); // Info from the robot comes in over the XBee wireless
+  Sensor.begin( 115200 ); // Info from the robot comes in over the XBee wireless
 
 //  Tstcon.begin( 115200 ); 
 
@@ -54,15 +54,25 @@ void loop(){ // Relay the serial data over wireless , no delays
 
   /// ### COMP --to-> SNSR #################################################
 
-  // 1. If we have a number of bytes at least as long as a message , then  
-  if( Serial.available() > inpLen - 1 ){
+
+  // 0. Push all of the Serial data onto the loopback
+  if( Serial.available() ){
     // 2. While there are still bytes to read , read a byte
     while( Serial.available() ){
-      readByte = Serial.read();
+//      readByte = Serial.read();
+      Sensor.write( Serial.read() );
+    }
+  }
+
+  // 1. If we have a number of bytes at least as long as a message , then  
+  if( Sensor.available() > inpLen - 1 ){
+    // 2. While there are still bytes to read , read a byte
+    while( Sensor.available() ){
+      readByte = Sensor.read();
       // 3. If the byte is the beginning of a packet , then read a packet's worth of bytes
       if( readByte == SOP ){
         input[0] = readByte;
-        for( int i = 1 ; i < inpLen ; i++ ){ input[i] = Serial.read(); } // Read 4 bytes from the serial connection
+        for( int i = 1 ; i < inpLen ; i++ ){ input[i] = Sensor.read(); } // Read 4 bytes from the serial connection
         // 4. If the packet ends properly , then set joy flag
         if( input[inpLen - 1] == EOP ){
           gotBytes = true;
@@ -86,8 +96,9 @@ void loop(){ // Relay the serial data over wireless , no delays
   // 7. If we got a properly-formed message , send it to the sensor '_REPEAT' times
  
   for( byte j = 0 ; j < _REPEAT ; j++ ){
+    // A. Write back onto the Serial
     for( byte i = 0 ; i < inpLen ; i++ ){ Serial.write( input[i] ); } // Write 4 bytes to the serial connection
-//      Sensor.write( (byte*)input , sizeof( input ) );
+    // B. Write onto
   }
 
   /// ### SNSR --to-> COMP #################################################
