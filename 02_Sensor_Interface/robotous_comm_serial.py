@@ -251,6 +251,7 @@ def interpret_force_bytes( data_D2toD14 ):
     R11 : Tz's upper byte  ,  R12 : Tz's upper byte
     R12 : Overload Status
     """
+    print "Raw Data:" , data_D2toD14
     return [
         F_and_T_from_upper_lower( data_D2toD14[  0 ] , data_D2toD14[  1 ] )[0] , # F_x , Force
         F_and_T_from_upper_lower( data_D2toD14[  2 ] , data_D2toD14[  3 ] )[0] , # F_y , Force
