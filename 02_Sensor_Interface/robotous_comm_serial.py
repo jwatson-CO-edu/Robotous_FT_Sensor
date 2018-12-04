@@ -233,10 +233,13 @@ def RECV_read_model_name( packetList ):
 def F_and_T_from_upper_lower( upperByte , lowerByte ):
     """ Perform the force and torque calculations from the 'upperByte' and 'lowerByte' , per page 15 of the manual , Return ( F , T ) """
     # NOTE: This function computes both the force [0] and torque [1] interpretations , and it is up to the client code to choose correcly
-    raw = c_uint16( 256 ).value * c_uint16( upperByte ).value + c_uint16( lowerByte ).value
-    raw = c_int16( raw )
+    raw = c_uint16( c_uint8( 256 ).value * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
+    #print "Raw Type:" , type( raw )
+    raw = float( c_int16( raw.value ).value )
+    #print "Converted value" , raw
     #      ( Force      , Torque       )
-    return ( raw.value / 50.0 , raw.value / 2000.0 )
+    #print "Incoming Bytes" , [ upperByte , lowerByte ] , ", Output:" , ( raw / 50.0 , raw / 2000.0 )
+    return ( raw / 50.0 , raw / 2000.0 )
 
 def interpret_force_bytes( data_D2toD14 ):
     """ Interpret response data bytes R1 to R14 as a sensor reading 
@@ -397,7 +400,7 @@ if __name__ == "__main__":
                     for msg in msgs:
                         
                         # Test 1 : Get model name
-                        #print '\t\t' , RECV_read_model_name( msg )
+                        print '\t\t' , RECV_read_model_name( msg )
                         
                         # Test 2 : Get sensor reading
                         #print '\t\t' , RECV_FT_1_Sample_Output( msg )
@@ -409,7 +412,7 @@ if __name__ == "__main__":
                         #print '\t\t' , RECV_Read_Filter_Setting( msg )  
                         
                         # Test 5 : Set the filter cutoff
-                        print '\t\t' , RECV_Set_Filter_Setting( msg )                    
+                        #print '\t\t' , RECV_Set_Filter_Setting( msg )                    
                 
                 print '\t' , len( msgs ) , "messages in" , len( stream ) , "bytes"
             sleep(0.25) 
@@ -433,7 +436,8 @@ if __name__ == "__main__":
                         try:
                             # Test 2 : Get sensor reading
                             print '\t\t' , RECV_FT_1_Sample_Output( msg )   
-                        except:
+                        except Exception as e:
+                            print e
                             print '\t\tBad Reading!'
                 sleep( 0.05 )
                 count += 1
