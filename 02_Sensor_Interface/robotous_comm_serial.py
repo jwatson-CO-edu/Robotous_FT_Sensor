@@ -54,6 +54,26 @@ def __prog_signature__(): return __progname__ + " , Version " + __version__ # Re
 
 # === Main Application =====================================================================================================================
 
+# == Util Functions ==
+
+def prepend( pList , item ):
+    """ Prepend an item to the front of the list """
+    if type( pList ) == list:
+        pList.insert( 0 , item )
+    elif type( pList ) == str:
+        pList = str( item ) + pList
+    return pList
+    
+def prepad( pList , item , totLen ):
+    """ Pad the front of 'pList' with copies of 'item' until it has at least 'totLen' items , Return a reference to the list """
+    prmLen = len( pList )
+    while len( pList ) < totLen:
+        pList = prepend( pList , item )
+    return pList
+        
+
+# __ End Util __
+
 # == Serial Functions ==
 
 # = Connection Functions =
@@ -179,6 +199,12 @@ def SEND_FT_Output_End( connection ):
     data = [ 12 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ]
     SEND_CMD( connection , data )
     
+def SEND_Set_Bias( connection , biasON = 1 ):
+    """ Request that the bias be turned on or off """
+    data = [ 17 , biasON ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ]
+    SEND_CMD( connection , data )  
+    # NOTE: This command is not followed by any response packet.
+    
 # ~ Receive ~
 
 _ERRCODES = {
@@ -233,13 +259,31 @@ def RECV_read_model_name( packetList ):
 def F_and_T_from_upper_lower( upperByte , lowerByte ):
     """ Perform the force and torque calculations from the 'upperByte' and 'lowerByte' , per page 15 of the manual , Return ( F , T ) """
     # NOTE: This function computes both the force [0] and torque [1] interpretations , and it is up to the client code to choose correcly
-    raw = c_uint16( c_uint8( 256 ).value * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
+    
+    #raw = c_uint16( c_uint8( 256 ).value * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
+    raw = c_uint16( 256 * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
+    #raw = np.uint16( 256 * np.uint8( upperByte ) + np.uint8( lowerByte ) )
+    #raw = np.uint16( 256 * np.uint16( upperByte ) + np.uint16( lowerByte ) )
+    
     #print "Raw Type:" , type( raw )
+    
     raw = float( c_int16( raw.value ).value )
+    #raw = float( np.int16( raw ) )
+    
     #print "Converted value" , raw
     #      ( Force      , Torque       )
     #print "Incoming Bytes" , [ upperByte , lowerByte ] , ", Output:" , ( raw / 50.0 , raw / 2000.0 )
     return ( raw / 50.0 , raw / 2000.0 )
+
+def interpret_overload_byte( olNumber ):
+    """ Unpack the overload byte into overload flags for each axis """
+    rtnDct = {}
+    flagByteStr = prepad( bin( olNumber ).split('b')[-1] , '0' , 6 )
+    labels = [ 'Fx_Ovrld' , 'Fy_Ovrld' , 'Fz_Ovrld' , 'Tx_Ovrld' , 'Ty_Ovrld' , 'Tz_Ovrld' ]
+    for i in xrange( -1 , -7 , -1 ):
+        flag = int( flagByteStr[i] )
+        rtnDct[ labels[i] ] = flag
+    return rtnDct
 
 def interpret_force_bytes( data_D2toD14 ):
     """ Interpret response data bytes R1 to R14 as a sensor reading 
@@ -259,7 +303,7 @@ def interpret_force_bytes( data_D2toD14 ):
         F_and_T_from_upper_lower( data_D2toD14[  6 ] , data_D2toD14[  7 ] )[1] , # T_x , Torque
         F_and_T_from_upper_lower( data_D2toD14[  8 ] , data_D2toD14[  9 ] )[1] , # T_y , Torque
         F_and_T_from_upper_lower( data_D2toD14[ 10 ] , data_D2toD14[ 11 ] )[1] , # T_z , Torque
-    ] , data_D2toD14[ 12 ]
+    ] , interpret_overload_byte( data_D2toD14[ 12 ] )
 
 def RECV_FT_1_Sample_Output( packetList ):
     """ Receive and interpret a single F-T reading """
@@ -381,6 +425,7 @@ if __name__ == "__main__":
             #SEND_Set_Filter_Setting( ser , 500 )
             
             # Test 6 : Stream data
+            SEND_Set_Bias( ser , biasON = 1 )
             SEND_FT_Output_Begin( ser )
             
             sleep(0.001)
