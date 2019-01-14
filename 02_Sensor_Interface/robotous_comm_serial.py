@@ -16,9 +16,13 @@ Dependencies: numpy
 
 
 """  
-~~~ Developmnent Plan ~~~
-[ ] ITEM1
-[ ] ITEM2
+~~~ Developmnent Notes ~~~
+2018-12-13: For now it does not seem to be worth it to stream values unless some kind of recording feature is needed.  Use cases:
+            1. Take periodic force readings at important parts of a manipulation --> Take one reading.
+               This means that device streaming would be turned off
+            2. Recording throughout an operation --> Read all buffer data and handle in a loop with a frequency such that the buffer does
+               not fill
+            3. Continuous streaming && recording --> ????
 """
 
 # === Init Environment =====================================================================================================================
@@ -428,7 +432,7 @@ if __name__ == "__main__":
             SEND_Set_Bias( ser , biasON = 1 )
             SEND_FT_Output_Begin( ser )
             
-            sleep(0.001)
+            sleep( 0.001 )
         
         sleep( 1 )
         
