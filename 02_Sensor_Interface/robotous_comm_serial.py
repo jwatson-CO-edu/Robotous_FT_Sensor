@@ -43,6 +43,7 @@ from time import sleep
 import serial # pySerial for USB comms w/ Arduino
 from serial.tools import list_ports
 import struct # for data composition over serial
+from pynput.keyboard import Key, Listener
 # ~~ Local ~~
 
 # ~~ Constants , Shortcuts , Aliases ~~
@@ -246,7 +247,8 @@ def get_messages_from_mass_bytes( intsList , bgnInt , endInt , msgLen ):
                 reading = False
                 currMsg = []
             elif currByte == endInt:
-                rtnMsgs.append( currMsg )
+                if len( currMsg ) == msgLen:
+                    rtnMsgs.append( currMsg )
                 currMsg = []
                 reading = False
         i += 1
@@ -261,7 +263,7 @@ def RECV_read_model_name( packetList ):
     return rtnStr
 
 def F_and_T_from_upper_lower( upperByte , lowerByte ):
-    """ Perform the force and torque calculations from the 'upperByte' and 'lowerByte' , per page 15 of the manual , Return ( F , T ) """
+    """ Perform the force and torque calculations from the 'upperByte' and 'lowerByte' , per page 16 of the manual , Return ( F , T ) """
     # NOTE: This function computes both the force [0] and torque [1] interpretations , and it is up to the client code to choose correcly
     
     #raw = c_uint16( c_uint8( 256 ).value * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
@@ -351,6 +353,45 @@ def RECV_Set_Filter_Setting( packetList ):
 
 # _ End Command _
 
+# = Monitoring =
+
+def monitor_sensor_until_break( connection ):
+    """ Continuously poll sensor and report the results until [CTRL]+[C] (Must be in TERMINAL) """
+    while 1:
+        try:
+            # 1. Send a reading request
+            SEND_FT_1_Sample_Output( connection )
+            # 2. Wait for a response
+            sleep( 0.1 )
+            stream = get_all_bytes_from_connection( ser )
+            # 3. If there is a response
+            if len( stream ):
+                # Response Message
+                msgs = get_messages_from_mass_bytes( stream , SOP , EOP , 1 + 16 + 1 + 1 )         
+                # 4. Interpret the response
+                if len( msgs ):
+                    for msg in msgs:
+                        print '\t\t' , RECV_FT_1_Sample_Output( msg )
+                # 5. Flush buffer
+                connection.flush()
+            # 6. else Skip incomplete response, No Action
+        # If the user asked to quit
+        except KeyboardInterrupt:
+            print "USE HAS PRESSED [CTRL]+[C] !!!"
+            break
+
+#def on_press( key ):
+    #""" Respond to a keydown event """
+    #print '{0} pressed'.format( key )
+
+#def on_release( key ):
+    #""" Respond to a keyup event """
+    #print '{0} release'.format( key )
+    ## Stop listener on [Esc]
+    #if key == Key.esc:
+        #return False
+
+# _ End Monitor _
 
 # = Program Vars =
 
@@ -371,6 +412,13 @@ if __name__ == "__main__":
     print __prog_signature__()
     termArgs = sys.argv[1:] # Terminal arguments , if they exist
     
+    # Collect events until released
+    #with Listener(
+            #on_press   = on_press,
+            #on_release = on_release 
+    #) as listener:
+        #listener.join()    
+    
     ser = None
     tst = None
     
@@ -385,6 +433,13 @@ if __name__ == "__main__":
     if TESTPORTEN:    
         print "Starting the test connections ..."
         tst = attempt_connection( TSTLIST , BAUD ) # Speed must match the port selected in the Arduino IDE
+
+    #SEND_Set_Bias( ser , biasON = 1 )
+    sleep( 0.5 )
+
+    # Monitor the sensor for troubleshooting purposes
+    if 1:
+        monitor_sensor_until_break( ser )
 
     # Send formatted messages and listen for data back on the test port
     if 0:
@@ -405,7 +460,7 @@ if __name__ == "__main__":
             sleep(0.5)           
 
     # Send formatted messages and listen for any data back
-    if 1:
+    if 0:
         
         sendTrials = 1
         recvTrials = 1        
@@ -429,7 +484,7 @@ if __name__ == "__main__":
             #SEND_Set_Filter_Setting( ser , 500 )
             
             # Test 6 : Stream data
-            SEND_Set_Bias( ser , biasON = 1 )
+            SEND_Set_Bias( ser , biasON = 0 )
             SEND_FT_Output_Begin( ser )
             
             sleep( 0.001 )
