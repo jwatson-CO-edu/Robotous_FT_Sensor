@@ -265,20 +265,15 @@ def RECV_read_model_name( packetList ):
 def F_and_T_from_upper_lower( upperByte , lowerByte ):
     """ Perform the force and torque calculations from the 'upperByte' and 'lowerByte' , per page 16 of the manual , Return ( F , T ) """
     # NOTE: This function computes both the force [0] and torque [1] interpretations , and it is up to the client code to choose correcly
-    
-    #raw = c_uint16( c_uint8( 256 ).value * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
+    # DEBUG:
+    if 1:
+        print "\tUpper Byte: _______ " , upperByte
+        print "\tLower Byte: _______ " , lowerByte
+        print "\t256 * Upper: ______ " , 256 * c_uint8( upperByte ).value
+        print "\t256 * Upper + Lower:" , c_uint16( 256 * c_uint8( upperByte ).value + c_uint8( lowerByte ).value ).value
+        print
     raw = c_uint16( 256 * c_uint8( upperByte ).value + c_uint8( lowerByte ).value )
-    #raw = np.uint16( 256 * np.uint8( upperByte ) + np.uint8( lowerByte ) )
-    #raw = np.uint16( 256 * np.uint16( upperByte ) + np.uint16( lowerByte ) )
-    
-    #print "Raw Type:" , type( raw )
-    
     raw = float( c_int16( raw.value ).value )
-    #raw = float( np.int16( raw ) )
-    
-    #print "Converted value" , raw
-    #      ( Force      , Torque       )
-    #print "Incoming Bytes" , [ upperByte , lowerByte ] , ", Output:" , ( raw / 50.0 , raw / 2000.0 )
     return ( raw / 50.0 , raw / 2000.0 )
 
 def interpret_overload_byte( olNumber ):
@@ -286,9 +281,19 @@ def interpret_overload_byte( olNumber ):
     rtnDct = {}
     flagByteStr = prepad( bin( olNumber ).split('b')[-1] , '0' , 6 )
     labels = [ 'Fx_Ovrld' , 'Fy_Ovrld' , 'Fz_Ovrld' , 'Tx_Ovrld' , 'Ty_Ovrld' , 'Tz_Ovrld' ]
-    for i in xrange( -1 , -7 , -1 ):
+    
+    for i in xrange( -1 , -( len( labels ) + 1 ) , -1 ):
         flag = int( flagByteStr[i] )
         rtnDct[ labels[i] ] = flag
+        
+    if 1:
+        # DEBUG
+        print "Overload Number:" , olNumber
+        print "Overload Bits: _" , flagByteStr
+        for label in labels:
+            print label , rtnDct[ label ] , ',' , 
+        print
+        
     return rtnDct
 
 def interpret_force_bytes( data_D2toD14 ):
@@ -312,9 +317,13 @@ def interpret_force_bytes( data_D2toD14 ):
     ] , interpret_overload_byte( data_D2toD14[ 12 ] )
 
 def RECV_FT_1_Sample_Output( packetList ):
-    """ Receive and interpret a single F-T reading """
+    """ Receive and interpret a single F-T reading , See page 16 of the manual """
     data = packetList[ 2 : -4 ]
-    print "Interpret" , len( data ) , "bytes"
+    print "Interpret" , len( data ) , "bytes" # There should be 13 bytes to interpret, R1 to R13
+    
+    # DEBUG
+    print "FT Original Bytes:" , packetList
+    
     return interpret_force_bytes( data )
 
 def RECV_Read_Overload_Log( packetList ):
@@ -377,7 +386,7 @@ def monitor_sensor_until_break( connection ):
             # 6. else Skip incomplete response, No Action
         # If the user asked to quit
         except KeyboardInterrupt:
-            print "USE HAS PRESSED [CTRL]+[C] !!!"
+            print "\nUSER HAS PRESSED [CTRL]+[C] !!! Shut down monitoring ... \n"
             break
 
 #def on_press( key ):
@@ -434,7 +443,7 @@ if __name__ == "__main__":
         print "Starting the test connections ..."
         tst = attempt_connection( TSTLIST , BAUD ) # Speed must match the port selected in the Arduino IDE
 
-    #SEND_Set_Bias( ser , biasON = 1 )
+    SEND_Set_Bias( ser , biasON = 1 )
     sleep( 0.5 )
 
     # Monitor the sensor for troubleshooting purposes
